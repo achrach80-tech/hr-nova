@@ -1,9 +1,14 @@
 /**
- * 👥 WORKFORCE CALCULATOR v4.0 COMPLET
+ * 👥 WORKFORCE CALCULATOR v4.1 COMPLET
  * 
- * CORRECTION TURNOVER: Affiche taux MENSUEL par défaut (pas annualisé)
+ * CORRECTION v4.1: Calcul effectif_debut_mois et effectif_moyen RÉPARÉ
  * 
- * CHANGEMENT v4.0:
+ * CHANGEMENT v4.1:
+ * - effectif_debut_mois: calculé depuis mois précédent (au lieu de copier effectif_fin)
+ * - effectif_moyen: moyenne entre debut et fin (au lieu de copier effectif_fin)
+ * - FIX: Turnover maintenant calculé correctement (plus de division par zéro)
+ * 
+ * CONSERVÉ v4.0:
  * - taux_turnover = calcul MENSUEL (5.7%) au lieu d'annualisé (67.9%)
  * - taux_turnover_mensuel (NOUVEAU) = taux réel du mois
  * - taux_turnover_annualise (NOUVEAU) = projection × 12
@@ -11,8 +16,9 @@
  * - Logs console pour debugging
  * 
  * @module WorkforceCalculator
- * @version 4.0-COMPLET
+ * @version 4.1-CORRIGÉ
  */
+
 
 interface EmployeeData {
   matricule: string
@@ -27,6 +33,7 @@ interface EmployeeData {
   statut_emploi?: string
   [key: string]: any
 }
+
 
 export interface WorkforceMetrics {
   // ============================================
@@ -80,6 +87,7 @@ export interface WorkforceMetrics {
   pct_precarite: number
 }
 
+
 export class WorkforceCalculator {
   
   /**
@@ -87,14 +95,16 @@ export class WorkforceCalculator {
    * 
    * @param employees - Liste complète des employés de la période
    * @param period - Période au format YYYY-MM-DD
+   * @param previousMonthEmployees - Employés du mois précédent (pour calcul effectif_debut)
    * @returns WorkforceMetrics complet
    */
   calculate(
     employees: EmployeeData[],
-    period: string
+    period: string,
+    previousMonthEmployees?: EmployeeData[]
   ): WorkforceMetrics {
     
-    console.group(`👥 WorkforceCalculator v4.0 - ${period}`)
+    console.group(`👥 WorkforceCalculator v4.1 - ${period}`)
     
     // Validation entrée
     if (!employees || employees.length === 0) {
@@ -112,26 +122,50 @@ export class WorkforceCalculator {
     console.log(`✅ ${activeEmployees.length} employés actifs`)
     
     // ============================================
-    // EFFECTIFS
+    // EFFECTIFS - CORRECTION v4.1
     // ============================================
     const effectif_fin_mois = activeEmployees.length
-    const effectif_debut_mois = effectif_fin_mois
-    const effectif_moyen = effectif_fin_mois
     
-    console.log(`👥 Effectif: ${effectif_fin_mois}`)
+    // ✅ CORRECTION: Calculer effectif_debut depuis mois précédent
+    let effectif_debut_mois = 0
+    if (previousMonthEmployees && previousMonthEmployees.length > 0) {
+      effectif_debut_mois = previousMonthEmployees.filter(e => e.statut_emploi === 'Actif').length
+    } else {
+      // Si pas de mois précédent, utiliser effectif_fin
+      effectif_debut_mois = effectif_fin_mois
+    }
+    
+    // ✅ CORRECTION: Calculer effectif_moyen = moyenne entre debut et fin
+    const effectif_moyen = effectif_debut_mois > 0
+      ? (effectif_debut_mois + effectif_fin_mois) / 2
+      : effectif_fin_mois
+    
+    console.log(`👥 Effectif: Début=${effectif_debut_mois}, Fin=${effectif_fin_mois}, Moyen=${effectif_moyen.toFixed(2)}`)
     
     // ============================================
-    // ETP (Équivalent Temps Plein)
+    // ETP (Équivalent Temps Plein) - CORRECTION v4.1
     // ============================================
     const etp_fin_mois = activeEmployees.reduce((sum, emp) => {
       const tempsPartiel = emp.temps_travail || 1.0
       return sum + tempsPartiel
     }, 0)
     
-    const etp_debut_mois = etp_fin_mois
-    const etp_moyen = etp_fin_mois
+    // ✅ CORRECTION: Calculer ETP début depuis mois précédent
+    let etp_debut_mois = 0
+    if (previousMonthEmployees && previousMonthEmployees.length > 0) {
+      etp_debut_mois = previousMonthEmployees
+        .filter(e => e.statut_emploi === 'Actif')
+        .reduce((sum, emp) => sum + (emp.temps_travail || 1.0), 0)
+    } else {
+      etp_debut_mois = etp_fin_mois
+    }
     
-    console.log(`⚡ ETP: ${etp_fin_mois.toFixed(2)}`)
+    // ✅ CORRECTION: Calculer ETP moyen
+    const etp_moyen = etp_debut_mois > 0
+      ? (etp_debut_mois + etp_fin_mois) / 2
+      : etp_fin_mois
+    
+    console.log(`⚡ ETP: Début=${etp_debut_mois.toFixed(2)}, Fin=${etp_fin_mois.toFixed(2)}, Moyen=${etp_moyen.toFixed(2)}`)
     
     // ============================================
     // MOUVEMENTS (ENTRÉES/SORTIES)
@@ -159,9 +193,9 @@ export class WorkforceCalculator {
     const nb_sorties_involontaires = nb_sorties - nb_sorties_volontaires
     
     // ============================================
-    // TURNOVER v4.0 - CORRECTION MAJEURE
+    // TURNOVER v4.0 - CALCUL INCHANGÉ (déjà correct)
     // ============================================
-    console.group('📊 Calcul Turnover v4.0 (CORRIGÉ)')
+    console.group('📊 Calcul Turnover v4.1 (effectif_moyen corrigé)')
     
     // 1. MENSUEL (NOUVEAU) - Taux RÉEL du mois
     const taux_turnover_mensuel = effectif_moyen > 0
@@ -173,7 +207,7 @@ export class WorkforceCalculator {
       : 0
     
     console.log(`✅ MENSUEL (réel): ${taux_turnover_mensuel.toFixed(2)}%`)
-    console.log(`   └─ Formule: (${nb_sorties} / ${effectif_moyen}) × 100`)
+    console.log(`   └─ Formule: (${nb_sorties} / ${effectif_moyen.toFixed(2)}) × 100`)
     
     // 2. ANNUALISÉ (NOUVEAU) - Projection si rythme constant
     const taux_turnover_annualise = effectif_moyen > 0
@@ -248,7 +282,7 @@ export class WorkforceCalculator {
       // Effectifs
       effectif_debut_mois,
       effectif_fin_mois,
-      effectif_moyen,
+      effectif_moyen: this.round(effectif_moyen, 2),
       
       // ETP
       etp_debut_mois: this.round(etp_debut_mois, 2),
@@ -541,6 +575,7 @@ export class WorkforceCalculator {
     return { turnover_comparison, cdi_comparison, message }
   }
 }
+
 
 // Export instance singleton pour réutilisation
 export const workforceCalculator = new WorkforceCalculator()

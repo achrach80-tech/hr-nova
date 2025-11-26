@@ -29,7 +29,6 @@ export interface WorkforceKPIs {
   pctFemmes: number
 }
 
-<<<<<<< HEAD
 export interface PayrollKPIs {
   masseBrute: number
   coutTotal: number
@@ -45,33 +44,6 @@ export interface PayrollKPIs {
   // ✅ AJOUT: Primes pour analyse intelligente
   primesExceptionnelles?: number
   primesMois13?: number
-=======
-export interface FinancialsData {
-  // Totaux mensuels
-  total_salaire_brut: number
-  total_salaire_de_base: number
-  total_primes_fixes: number
-  total_primes_variables: number
-  total_primes_exceptionnelles: number
-  total_heures_supp_payees: number
-  total_avantages_nature: number
-  total_indemnites: number
-  
-  // Charges
-  total_cotisations_sociales: number
-  total_taxes_sur_salaire: number
-  total_autres_charges: number
-  total_masse_salariale_chargee: number
-  
-  // Moyennes
-  salaire_brut_moyen: number
-  salaire_net_moyen: number
-  masse_salariale_moyenne: number
-  
-  // Métadonnées
-  nombre_bulletins: number
-  periode: string
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
 }
 
 export interface AbsenceKPIs {
@@ -85,7 +57,7 @@ export interface AbsenceKPIs {
 
 export interface KPIData {
   workforce: WorkforceKPIs | null
-  financials: FinancialsData | null
+  financials: PayrollKPIs | null
   absences: AbsenceKPIs | null
   previousMonthFinancials: PayrollKPIs | null
   previousYearFinancials: PayrollKPIs | null

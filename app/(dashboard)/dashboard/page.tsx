@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { createClient, isAuthenticated, debugSession } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Building2, Calendar, ChevronDown, Sparkles, Brain,
@@ -27,6 +27,7 @@ export default function CyberDashboard() {
   const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const supabase = createClient()
   const router = useRouter()
   const mountedRef = useRef(true)
   const initializedRef = useRef(false)
@@ -48,14 +49,7 @@ export default function CyberDashboard() {
     if (!estId || !mountedRef.current) return
     
     try {
-<<<<<<< HEAD
       console.log('🔍 Checking for periods in snapshots_mensuels...')
-=======
-      console.log('📅 Loading periods for establishment:', estId)
-      
-      // CRITICAL FIX: Create client fresh to ensure x-company-token is included
-      const supabase = createClient()
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
       
       // Try snapshots first
       const { data: periodData, error: snapError } = await supabase
@@ -83,29 +77,17 @@ export default function CyberDashboard() {
 
         if (fallbackError) {
           console.error('❌ Fallback error:', fallbackError)
-<<<<<<< HEAD
           console.log('🔄 Aucune donnée trouvée, redirection vers /import...')
           router.push('/import')
-=======
-          setError('Aucune période trouvée. Importez vos données.')
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
           return
         }
         
         const uniquePeriods = [...new Set(fallbackData?.map(p => p.periode) || [])]
         
-<<<<<<< HEAD
         if (uniquePeriods.length === 0) {
           console.log('🔄 Aucune période dans employes, redirection vers /import...')
           router.push('/import')
           return
-=======
-        if (uniquePeriods.length > 0) {
-          setSelectedPeriod(uniquePeriods[0])
-          console.log('✅ Loaded', uniquePeriods.length, 'periods from employes')
-        } else {
-          setError('Aucune donnée disponible.')
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
         }
         
         console.log(`✅ ${uniquePeriods.length} périodes trouvées dans employes`)
@@ -116,21 +98,11 @@ export default function CyberDashboard() {
 
       // Success path
       const uniquePeriods = [...new Set(periodData?.map(p => p.periode) || [])]
-<<<<<<< HEAD
       
       if (uniquePeriods.length === 0) {
         console.log('🔄 Aucune période dans snapshots, redirection vers /import...')
         router.push('/import')
         return
-=======
-      setPeriods(uniquePeriods)
-
-      if (uniquePeriods.length > 0) {
-        setSelectedPeriod(uniquePeriods[0])
-        console.log('✅ Loaded', uniquePeriods.length, 'periods from snapshots')
-      } else {
-        setError('Aucune période disponible. Importez vos données.')
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
       }
 
       console.log(`✅ ${uniquePeriods.length} périodes trouvées dans snapshots`)
@@ -140,18 +112,12 @@ export default function CyberDashboard() {
     } catch (err) {
       if (!mountedRef.current) return
       console.error('❌ Unexpected error loading periods:', err)
-<<<<<<< HEAD
       console.log('🔄 Erreur inattendue, redirection vers /import...')
       router.push('/import')
     }
   }, [supabase, router])
-=======
-      setError('Erreur système')
-    }
-  }, [])
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
 
-  // CRITICAL FIX: Single useEffect for initialization with proper session check
+  // OPTIMIZATION: Single useEffect for initialization - only runs once
   useEffect(() => {
     // Prevent double initialization
     if (initializedRef.current) return
@@ -162,31 +128,13 @@ export default function CyberDashboard() {
         setInitialLoading(true)
         setError(null)
 
-        console.log('🚀 Initializing dashboard...')
-        
-        // CRITICAL FIX: Debug session state first
-        const sessionDebug = debugSession()
-        
-        if (!sessionDebug) {
-          console.log('❌ No session found, redirecting to login')
+        const sessionStr = localStorage.getItem('company_session')
+        if (!sessionStr) {
           router.push('/login')
           return
         }
 
-        // CRITICAL FIX: Verify authentication before proceeding
-        if (!isAuthenticated()) {
-          console.log('❌ User not authenticated, redirecting to login')
-          router.push('/login')
-          return
-        }
-
-        console.log('✅ Session verified, company_id:', sessionDebug.company_id)
-
-        // CRITICAL FIX: Create Supabase client AFTER session verification
-        // This ensures the x-company-token header is included
-        const supabase = createClient()
-
-        console.log('🔄 Loading company data...')
+        const session = JSON.parse(sessionStr)
 
         const { data: companyData, error: companyError } = await supabase
           .from('entreprises')
@@ -200,57 +148,25 @@ export default function CyberDashboard() {
               is_headquarters
             )
           `)
-          .eq('id', sessionDebug.company_id)
+          .eq('id', session.company_id)
           .single()
 
-        if (companyError) {
-          console.error('❌ Company load error:', companyError)
-          console.error('Error details:', {
-            message: companyError.message,
-            details: companyError.details,
-            hint: companyError.hint,
-            code: companyError.code
-          })
-          
-          // Provide helpful error messages based on error code
-          if (companyError.code === 'PGRST116' || companyError.message?.includes('0 rows')) {
-            setError('Entreprise introuvable. Vérifiez votre token d\'accès.')
-          } else if (companyError.code === '42501' || companyError.message?.includes('permission')) {
-            setError('Accès refusé. Le token ne donne pas accès aux données.')
-            setTimeout(() => router.push('/login'), 2000)
-          } else {
-            setError(`Erreur: ${companyError.message}`)
-          }
-          
-          throw companyError
-        }
-
-        console.log('✅ Company loaded:', companyData.nom)
+        if (companyError) throw companyError
 
         if (!mountedRef.current) return
 
         setCompany(companyData as Company)
         const establishments = companyData.etablissements || []
         
-        console.log('✅ Found', establishments.length, 'establishment(s)')
-
         const defaultEst = establishments.find((e: any) => e.is_headquarters) || establishments[0]
         if (defaultEst) {
-          console.log('✅ Selected establishment:', defaultEst.nom)
           setSelectedEstablishment(defaultEst as Establishment)
           await loadPeriodsForEstablishment(defaultEst.id)
-        } else {
-          console.log('⚠️ No establishments found')
-          setError('Aucun établissement trouvé. Contactez le support.')
         }
       } catch (err) {
         if (!mountedRef.current) return
-        console.error('❌ Initialize error:', err)
-        
-        // Only set error if we haven't already
-        if (!error) {
-          setError('Erreur d\'initialisation du dashboard')
-        }
+        console.error('Initialize error:', err)
+        setError('Erreur d\'initialisation')
       } finally {
         if (mountedRef.current) {
           setInitialLoading(false)
@@ -263,58 +179,57 @@ export default function CyberDashboard() {
     return () => {
       mountedRef.current = false
     }
-  }, [router, loadPeriodsForEstablishment])
+  }, [router, supabase, loadPeriodsForEstablishment])
 
-  // Handle period changes
-  const handlePeriodChange = useCallback((newPeriod: string) => {
-    setSelectedPeriod(newPeriod)
+  // OPTIMIZATION: Separate useEffect for modal overflow management
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = showPeriodSelector ? 'hidden' : 'unset'
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = 'unset'
+      }
+    }
+  }, [showPeriodSelector])
+
+  // OPTIMIZATION: Memoized format function
+  const formatPeriodDisplay = useCallback((periode: string): string => {
+    if (!periode) return ''
+    try {
+      const date = new Date(periode)
+      return date.toLocaleDateString('fr-FR', { 
+        month: 'long', 
+        year: 'numeric' 
+      })
+    } catch {
+      return periode
+    }
+  }, [])
+
+  // OPTIMIZATION: Memoized period change handler
+  const handlePeriodChange = useCallback((period: string) => {
+    setSelectedPeriod(period)
     setShowPeriodSelector(false)
   }, [])
 
-  // Format period for display
-  const formatPeriodDisplay = (period: string) => {
-    if (!period) return ''
-    try {
-      const date = new Date(period)
-      return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' })
-    } catch {
-      return period
-    }
-  }
-
-  // Show loading state
+  // Loading state
   if (initialLoading) {
     return (
-<<<<<<< HEAD
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 flex items-center justify-center">
         <div className="text-center space-y-6">
           <motion.div
             className="inline-flex items-center justify-center w-32 h-32 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-3xl shadow-2xl"
-=======
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center">
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <motion.div
-            className="w-32 h-32 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl"
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
             animate={{
               rotate: [0, 360],
               scale: [1, 1.1, 1]
             }}
             transition={{
-<<<<<<< HEAD
               duration: 3,
-=======
-              duration: 2,
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
               repeat: Infinity,
               ease: "easeInOut"
             }}
           >
-<<<<<<< HEAD
             <Brain size={64} className="text-white" />
           </motion.div>
           
@@ -348,22 +263,10 @@ export default function CyberDashboard() {
             ))}
           </div>
         </div>
-=======
-            <Brain size={64} className="text-white drop-shadow-lg" />
-          </motion.div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-4">
-            Initialisation...
-          </h2>
-          <p className="text-slate-400 text-lg">
-            Chargement de vos données cyberpunk
-          </p>
-        </motion.div>
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
       </div>
     )
   }
 
-<<<<<<< HEAD
   // Error state
   if (error) {
     return (
@@ -386,42 +289,6 @@ export default function CyberDashboard() {
             whileTap={{ scale: 0.95 }}
           >
             Commencer l'import
-=======
-  // Show error state
-  if (error && !company) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center">
-        <motion.div
-          className="text-center max-w-lg mx-auto p-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <motion.div
-            className="w-32 h-32 bg-gradient-to-br from-red-500 to-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl"
-            animate={{
-              rotate: [0, 5, -5, 0],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-            }}
-          >
-            <AlertTriangle size={64} className="text-white drop-shadow-lg" />
-          </motion.div>
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Erreur
-          </h2>
-          <p className="text-slate-300 text-lg mb-8">
-            {error}
-          </p>
-          <motion.button
-            onClick={() => router.push('/login')}
-            className="px-8 py-4 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-xl font-bold hover:opacity-90 transition-opacity"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Retour à la connexion
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
           </motion.button>
         </motion.div>
       </div>
@@ -429,7 +296,6 @@ export default function CyberDashboard() {
   }
 
   return (
-<<<<<<< HEAD
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 overflow-x-hidden">
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -442,24 +308,10 @@ export default function CyberDashboard() {
           }}
           transition={{
             duration: 20,
-=======
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 relative overflow-hidden">
-      {/* Animated background effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 8,
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
             repeat: Infinity,
             ease: "easeInOut"
           }}
         />
-<<<<<<< HEAD
         <motion.div 
           className="absolute bottom-20 right-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"
           animate={{
@@ -469,16 +321,6 @@ export default function CyberDashboard() {
           }}
           transition={{
             duration: 25,
-=======
-        <motion.div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 10,
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
             repeat: Infinity,
             ease: "easeInOut"
           }}
@@ -486,7 +328,6 @@ export default function CyberDashboard() {
       </div>
 
       {/* Header */}
-<<<<<<< HEAD
       <motion.div 
         className="relative z-20 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-xl"
         initial={{ y: -100, opacity: 0 }}
@@ -551,66 +392,20 @@ export default function CyberDashboard() {
                     <ChevronDown size={18} className="text-slate-400" />
                   </motion.div>
                 </motion.button>
-=======
-      <motion.div
-        className="relative z-20 border-b border-slate-700/30 bg-slate-900/50 backdrop-blur-xl"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-      >
-        <div className="px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <motion.div
-                className="flex items-center gap-3"
-                whileHover={{ scale: 1.02 }}
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <Brain size={28} className="text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                    {company?.nom || 'Dashboard'}
-                  </h1>
-                  <p className="text-sm text-slate-400">
-                    Analytics Platform
-                  </p>
-                </div>
-              </motion.div>
-
-              <div className="flex items-center gap-3 pl-6 border-l border-slate-700/50">
-                <Building2 size={20} className="text-purple-400" />
-                <span className="text-slate-300 font-medium">
-                  {selectedEstablishment?.nom || 'Sélectionnez'}
-                </span>
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
               </div>
 
               <motion.button
-                onClick={() => setShowPeriodSelector(true)}
-                className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push('/import')}
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity shadow-lg"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <Calendar size={18} className="text-cyan-400" />
-                <span className="text-slate-300 font-medium">
-                  {formatPeriodDisplay(selectedPeriod) || 'Sélectionner'}
-                </span>
-                <ChevronDown size={18} className="text-slate-500" />
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} />
+                  Import
+                </div>
               </motion.button>
             </div>
-
-            <motion.button
-              onClick={() => router.push('/import')}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-xl font-medium hover:opacity-90 transition-opacity shadow-lg"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles size={18} />
-                Import
-              </div>
-            </motion.button>
           </div>
         </div>
       </motion.div>
@@ -699,7 +494,6 @@ export default function CyberDashboard() {
       {/* Main content */}
       <div className="relative z-10 p-8 space-y-12">
         {kpiData ? (
-<<<<<<< HEAD
   <>
     <CyberWorkforceSection 
       data={kpiData.workforce} 
@@ -732,38 +526,6 @@ export default function CyberDashboard() {
     />
   </>
 ) : (
-=======
-          <>
-            <CyberWorkforceSection 
-              data={kpiData.workforce} 
-              loading={kpiLoading}
-              previousMonthData={kpiData.previousMonthWorkforce}
-              previousYearData={kpiData.previousYearWorkforce}
-            />
-            
-            <CyberPayrollSection 
-              data={kpiData?.financials || null}
-              previousMonthData={kpiData?.previousMonthFinancials || null}
-              previousYearData={kpiData?.previousYearFinancials || null}
-              loading={kpiLoading} 
-            />
-            
-            <CyberAbsenceSection 
-              data={kpiData.absences} 
-              loading={kpiLoading}
-              previousMonthData={kpiData.previousMonthAbsences}
-              previousYearData={kpiData.previousYearAbsences}
-            />
-            
-            <CyberDemographicsSection 
-              data={kpiData.workforce} 
-              loading={kpiLoading}
-              previousMonthData={kpiData.previousMonthWorkforce}
-              previousYearData={kpiData.previousYearWorkforce}
-            />
-          </>
-        ) : (
->>>>>>> 5a39fde6b165f4356ff6e2e7c7c1f456aea77edb
           <motion.div 
             className="text-center py-20"
             initial={{ opacity: 0, scale: 0.9 }}
@@ -822,7 +584,7 @@ export default function CyberDashboard() {
             </div>
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-purple-400" />
-              <span>Talvio Analytics v5.1</span>
+              <span>Talvio Analytics v5.0</span>
             </div>
           </div>
         </motion.div>
